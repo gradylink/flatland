@@ -1,5 +1,8 @@
 #include "server.hpp"
 #include "connection.hpp"
+#include "resourcePack.hpp"
+#include "sha1.hpp"
+#include <cstdio>
 #include <netinet/in.h>
 #include <stdexcept>
 #include <sys/socket.h>
@@ -8,11 +11,35 @@
 
 namespace flatland {
 
+namespace {
+
+std::string toHexString(const std::array<uint8_t, 20> &digest) {
+  std::string hex;
+  hex.reserve(40);
+  char byteChars[3];
+  for (uint8_t byte : digest) {
+    std::snprintf(byteChars, sizeof(byteChars), "%02x", byte);
+    hex += byteChars;
+  }
+  return hex;
+}
+
+} // namespace
+
 Server::Server(ServerOptions options) : options(std::move(options)) {}
 
 Server::~Server() { stop(); }
 
 void Server::run() {
+  std::vector<uint8_t> resourcePackBytes = buildResourcePackZip();
+  std::string resourcePackSha1 = toHexString(sha1(resourcePackBytes));
+  uint16_t resourcePackPort = static_cast<uint16_t>(options.port + 1);
+
+  resourcePackServer = std::make_unique<HttpServer>(resourcePackPort, "application/zip", std::string(resourcePackBytes.begin(), resourcePackBytes.end()));
+  std::thread([this]() { resourcePackServer->run(); }).detach();
+
+  ResourcePackInfo resourcePackInfo{resourcePackPort, resourcePackSha1};
+
   listenFd = ::socket(AF_INET, SOCK_STREAM, 0);
   if (listenFd < 0) throw std::runtime_error("failed to create socket");
 
@@ -45,9 +72,9 @@ void Server::run() {
     }
 
     ServerOptions connectionOptions = options;
-    std::thread([clientFd, connectionOptions]() {
+    std::thread([clientFd, connectionOptions, resourcePackInfo]() {
       try {
-        serveConnection(clientFd, connectionOptions);
+        serveConnection(clientFd, connectionOptions, resourcePackInfo);
       } catch (...) {
       }
       ::close(clientFd);
@@ -62,6 +89,7 @@ void Server::stop() {
     ::close(listenFd);
     listenFd = -1;
   }
+  if (resourcePackServer) resourcePackServer->stop();
 }
 
 } // namespace flatland

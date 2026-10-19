@@ -17,6 +17,8 @@ target_include_directories(flatland PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMA
 find_package(Threads REQUIRED)
 target_link_libraries(flatland PUBLIC Threads::Threads)
 
+cl_add_dep(flatland miniz PRIVATE)
+
 if(FLATLAND_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()

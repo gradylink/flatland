@@ -329,8 +329,6 @@ void sendMinimalRegistries(int socketFd) {
   );
 
   sendMinimalTags(socketFd);
-
-  writePacket(socketFd, packet::configuration::finishConfigurationClientbound, ByteBuffer{});
 }
 
 } // namespace flatland

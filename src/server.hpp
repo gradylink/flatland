@@ -1,6 +1,8 @@
 #pragma once
+#include "httpServer.hpp"
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
 
 namespace flatland {
@@ -26,6 +28,7 @@ private:
   ServerOptions options;
   int listenFd = -1;
   std::atomic<bool> running{false};
+  std::unique_ptr<HttpServer> resourcePackServer;
 };
 
 } // namespace flatland

@@ -18,24 +18,31 @@ constexpr int32_t loginFinishedClientbound = 2;
 namespace configuration {
 constexpr int32_t clientInformationServerbound = 0;
 constexpr int32_t finishConfigurationServerbound = 3;
+constexpr int32_t resourcePackServerbound = 6;
 constexpr int32_t selectKnownPacksServerbound = 7;
 
 constexpr int32_t finishConfigurationClientbound = 3;
 constexpr int32_t registryDataClientbound = 7;
+constexpr int32_t resourcePackPushClientbound = 9;
 constexpr int32_t updateTagsClientbound = 14;
 constexpr int32_t selectKnownPacksClientbound = 15;
 } // namespace configuration
 
 namespace play {
+constexpr int32_t addEntityClientbound = 1;
 constexpr int32_t chunkBatchFinishedClientbound = 11;
 constexpr int32_t chunkBatchStartClientbound = 12;
 constexpr int32_t gameEventClientbound = 39;
 constexpr int32_t keepAliveClientbound = 45;
 constexpr int32_t levelChunkWithLightClientbound = 46;
 constexpr int32_t loginClientbound = 50;
+constexpr int32_t playerAbilitiesClientbound = 65;
 constexpr int32_t playerPositionClientbound = 73;
+constexpr int32_t setCameraClientbound = 95;
 constexpr int32_t setChunkCacheCenterClientbound = 96;
 constexpr int32_t setDefaultSpawnPositionClientbound = 99;
+constexpr int32_t setEntityDataClientbound = 101;
+constexpr int32_t teleportEntityClientbound = 35;
 
 constexpr int32_t keepAliveServerbound = 28;
 } // namespace play
