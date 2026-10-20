@@ -29,7 +29,7 @@ ByteBuffer buildDimensionTypeEntryNbt() {
   ByteBuffer buffer;
   NbtWriter nbt(buffer);
   nbt.beginNetworkRootCompound();
-  nbt.writeFloat("ambient_light", 0.0f);
+  nbt.writeFloat("ambient_light", 1.0f);
   nbt.writeDouble("coordinate_scale", 1.0);
   nbt.writeByte("has_ceiling", 0);
   nbt.writeByte("has_ender_dragon_fight", 0);
@@ -39,9 +39,18 @@ ByteBuffer buildDimensionTypeEntryNbt() {
   nbt.writeInt("logical_height", 384);
   nbt.writeInt("min_y", -64);
   nbt.writeInt("monster_spawn_block_light_limit", 0);
-  nbt.writeInt("monster_spawn_light_level", 0);
-  nbt.beginCompound("attributes");
+
+  nbt.beginCompound("monster_spawn_light_level");
+  nbt.writeString("type", "minecraft:uniform");
+  nbt.writeInt("min_inclusive", 0);
+  nbt.writeInt("max_inclusive", 7);
   nbt.endCompound();
+
+  nbt.beginCompound("attributes");
+  nbt.writeString("minecraft:visual/sky_color", "#ffffff");
+  nbt.writeString("minecraft:visual/fog_color", "#ffffff");
+  nbt.endCompound();
+
   nbt.endCompound();
   return buffer;
 }
@@ -54,10 +63,10 @@ ByteBuffer buildBiomeEntryNbt() {
   nbt.writeFloat("temperature", 0.5f);
   nbt.writeFloat("downfall", 0.5f);
   nbt.beginCompound("effects");
-  nbt.writeInt("fog_color", 0xC0D8FF);
+  nbt.writeInt("fog_color", 0xFFFFFF);
   nbt.writeInt("water_color", 0x3F76E4);
   nbt.writeInt("water_fog_color", 0x050533);
-  nbt.writeInt("sky_color", 0x78A7FF);
+  nbt.writeInt("sky_color", 0xFFFFFF);
   nbt.endCompound();
   nbt.endCompound();
   return buffer;

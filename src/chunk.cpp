@@ -105,23 +105,4 @@ ByteBuffer buildChunkPacket(int32_t chunkX, int32_t chunkZ, const BlockAtFn &blo
   return packet;
 }
 
-ByteBuffer buildEmptyChunkPacket(int32_t chunkX, int32_t chunkZ, int32_t biomeId) {
-  return buildChunkPacket(chunkX, chunkZ, [](int32_t, int32_t, int32_t) { return airBlockId; }, biomeId);
-}
-
-int32_t spawnRoomBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ) {
-  constexpr int32_t roomMinX = 4, roomMaxX = 12;
-  constexpr int32_t roomMinZ = 4, roomMaxZ = 12;
-  constexpr int32_t floorY = 99, ceilingY = 104;
-
-  if (worldX < roomMinX || worldX > roomMaxX || worldZ < roomMinZ || worldZ > roomMaxZ) return airBlockId;
-  if (worldY < floorY || worldY > ceilingY) return airBlockId;
-
-  bool isFloorOrCeiling = (worldY == floorY || worldY == ceilingY);
-  bool isWall = (worldX == roomMinX || worldX == roomMaxX || worldZ == roomMinZ || worldZ == roomMaxZ);
-  if (isFloorOrCeiling || isWall) return barrierBlockId;
-
-  return airBlockId;
-}
-
 } // namespace flatland

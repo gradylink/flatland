@@ -19,6 +19,21 @@ target_link_libraries(flatland PUBLIC Threads::Threads)
 
 cl_add_dep(flatland miniz PRIVATE)
 
+cl_import_source(
+  NAME bundle_cmake
+  DOWNLOAD_ONLY
+  REPO https://github.com/gradylink/bundle.cmake.git
+  REF 01f64897efe84f97033293edc3aa5a6b5e6296c0
+)
+include("${CL_SOURCE_DIR}/cmake/bundle.cmake")
+
+bundle_add(flatland_shaders
+  BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets
+  DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/assets
+  COMPRESSION DEFLATE
+)
+target_link_libraries(flatland PUBLIC flatland_shaders)
+
 if(FLATLAND_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()

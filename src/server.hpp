@@ -1,9 +1,14 @@
 #pragma once
 #include "httpServer.hpp"
+#include "playerSession.hpp"
+#include "textureRegistry.hpp"
+#include "viewport.hpp"
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace flatland {
 
@@ -21,11 +26,18 @@ public:
   Server(const Server &) = delete;
   Server &operator=(const Server &) = delete;
 
+  void setViewport(Viewport viewport);
+  TextureId registerTexture(const std::string &name, std::vector<uint8_t> pngBytes);
+  void onPlayerJoin(std::function<void(PlayerSession &)> callback);
+
   void run();
   void stop();
 
 private:
   ServerOptions options;
+  Viewport viewport;
+  TextureRegistry textures;
+  std::function<void(PlayerSession &)> joinCallback;
   int listenFd = -1;
   std::atomic<bool> running{false};
   std::unique_ptr<HttpServer> resourcePackServer;

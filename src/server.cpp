@@ -30,8 +30,14 @@ Server::Server(ServerOptions options) : options(std::move(options)) {}
 
 Server::~Server() { stop(); }
 
+void Server::setViewport(Viewport newViewport) { viewport = newViewport; }
+
+TextureId Server::registerTexture(const std::string &name, std::vector<uint8_t> pngBytes) { return textures.registerTexture(name, std::move(pngBytes)); }
+
+void Server::onPlayerJoin(std::function<void(PlayerSession &)> callback) { joinCallback = std::move(callback); }
+
 void Server::run() {
-  std::vector<uint8_t> resourcePackBytes = buildResourcePackZip();
+  std::vector<uint8_t> resourcePackBytes = buildResourcePackZip(viewport, textures);
   std::string resourcePackSha1 = toHexString(sha1(resourcePackBytes));
   uint16_t resourcePackPort = static_cast<uint16_t>(options.port + 1);
 
@@ -72,9 +78,9 @@ void Server::run() {
     }
 
     ServerOptions connectionOptions = options;
-    std::thread([clientFd, connectionOptions, resourcePackInfo]() {
+    std::thread([clientFd, connectionOptions, resourcePackInfo, this]() {
       try {
-        serveConnection(clientFd, connectionOptions, resourcePackInfo);
+        serveConnection(clientFd, connectionOptions, resourcePackInfo, viewport, textures, joinCallback);
       } catch (...) {
       }
       ::close(clientFd);

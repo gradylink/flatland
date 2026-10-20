@@ -1,6 +1,10 @@
 #pragma once
+#include "playerSession.hpp"
 #include "server.hpp"
+#include "textureRegistry.hpp"
+#include "viewport.hpp"
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace flatland {
@@ -10,6 +14,13 @@ struct ResourcePackInfo {
   std::string sha1Hex;
 };
 
-void serveConnection(int socketFd, const ServerOptions &options, const ResourcePackInfo &resourcePack);
+void serveConnection(
+  int socketFd,
+  const ServerOptions &options,
+  const ResourcePackInfo &resourcePack,
+  const Viewport &viewport,
+  const TextureRegistry &textures,
+  const std::function<void(PlayerSession &)> &joinCallback
+);
 
 } // namespace flatland

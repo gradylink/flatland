@@ -16,8 +16,4 @@ using BlockAtFn = std::function<int32_t(int32_t worldX, int32_t worldY, int32_t 
 
 ByteBuffer buildChunkPacket(int32_t chunkX, int32_t chunkZ, const BlockAtFn &blockAt, int32_t biomeId = plainsBiomeId);
 
-ByteBuffer buildEmptyChunkPacket(int32_t chunkX, int32_t chunkZ, int32_t biomeId = plainsBiomeId);
-
-int32_t spawnRoomBlockAt(int32_t worldX, int32_t worldY, int32_t worldZ);
-
 } // namespace flatland

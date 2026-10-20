@@ -4,12 +4,17 @@
 #include "entities.hpp"
 #include "packetIds.hpp"
 #include "packetIo.hpp"
+#include "playerSession.hpp"
 #include "registries.hpp"
+#include "textureRegistry.hpp"
 #include "uuid.hpp"
+#include "viewport.hpp"
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <poll.h>
 #include <string>
+#include <vector>
 
 namespace flatland {
 
@@ -19,15 +24,45 @@ constexpr int32_t protocolVersion = 777;
 constexpr const char *gameVersion = "26.3";
 
 constexpr int32_t playerEntityId = 1;
+constexpr int32_t cameraAnchorEntityId = 2;
+constexpr int32_t firstSpriteEntityId = 100;
 
-constexpr int32_t testCameraAnchorEntityId = 1000;
-constexpr int32_t testDisplayEntityId = 1001;
-constexpr double testCameraAnchorX = 8.0, testCameraAnchorY = 101.5, testCameraAnchorZ = 5.0;
-constexpr double testDisplayCenterX = 8.0, testDisplayY = 101.5, testDisplayZ = 8.0;
-constexpr double testDisplayAmplitude = 2.0;
+constexpr double cameraZ = viewportPlaneZ - 20.0;
+
+struct RoomBounds {
+  int32_t minX, maxX, minY, maxY, minZ, maxZ;
+};
+
+RoomBounds computePlayerCellBounds() {
+  int32_t spawnX = static_cast<int32_t>(std::floor(viewportOriginX));
+  int32_t spawnY = static_cast<int32_t>(std::floor(viewportOriginY));
+  int32_t spawnZ = static_cast<int32_t>(std::floor(cameraZ));
+
+  RoomBounds bounds;
+  bounds.minX = spawnX - 1;
+  bounds.maxX = spawnX + 1;
+  bounds.minY = spawnY - 1;
+  bounds.maxY = spawnY + 2;
+  bounds.minZ = spawnZ - 1;
+  bounds.maxZ = spawnZ + 1;
+  return bounds;
+}
+
+int32_t boxRoomBlockAt(const RoomBounds &room, int32_t x, int32_t y, int32_t z) {
+  if (x < room.minX || x > room.maxX || y < room.minY || y > room.maxY || z < room.minZ || z > room.maxZ) return airBlockId;
+  bool onShell = (x == room.minX || x == room.maxX || y == room.minY || y == room.maxY || z == room.minZ || z == room.maxZ);
+  return onShell ? barrierBlockId : airBlockId;
+}
 
 int64_t packPosition(int32_t x, int32_t y, int32_t z) {
   return ((static_cast<int64_t>(x) & 0x3FFFFFF) << 38) | ((static_cast<int64_t>(z) & 0x3FFFFFF) << 12) | (static_cast<int64_t>(y) & 0xFFF);
+}
+
+ByteBuffer buildPostEffectsPacket(const std::vector<std::string> &postEffectIds) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(static_cast<int32_t>(postEffectIds.size()));
+  for (const std::string &id : postEffectIds) buffer.writeString(id);
+  return buffer;
 }
 
 std::string escapeJsonString(const std::string &value) {
@@ -119,9 +154,7 @@ void handleConfiguration(int socketFd, const std::string &clientReportedAddress,
   readPacket(socketFd); // acknowledge_finish_configuration
 }
 
-void sendJoinSequence(int socketFd, const ServerOptions &options, int32_t chunkRadius) {
-  constexpr double spawnX = 8.5, spawnY = 100.0, spawnZ = 8.5;
-
+void sendJoinSequence(int socketFd, const ServerOptions &options, const RoomBounds &room, int32_t chunkRadiusX, int32_t chunkRadiusZ) {
   ByteBuffer loginPlay;
   loginPlay.writeInt(playerEntityId);
   loginPlay.writeBool(false); // hardcore
@@ -130,12 +163,12 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, int32_t chunkR
   loginPlay.writeString("minecraft:the_nether");
   loginPlay.writeString("minecraft:the_end");
   loginPlay.writeVarInt(options.maxPlayers);
-  loginPlay.writeVarInt(chunkRadius); // view distance
-  loginPlay.writeVarInt(chunkRadius); // simulation distance
-  loginPlay.writeBool(false);         // reduced debug info
-  loginPlay.writeBool(false);         // respawn screen
-  loginPlay.writeBool(false);         // limited crafting
-  loginPlay.writeVarInt(0);           // dimension type
+  loginPlay.writeVarInt(chunkRadiusX); // view distance
+  loginPlay.writeVarInt(chunkRadiusX); // simulation distance
+  loginPlay.writeBool(false);          // reduced debug info
+  loginPlay.writeBool(false);          // respawn screen
+  loginPlay.writeBool(false);          // limited crafting
+  loginPlay.writeVarInt(0);            // dimension type
   loginPlay.writeString("minecraft:overworld");
   loginPlay.writeLong(0);     // hashed seed
   loginPlay.writeByte(2);     // game mode: adventure
@@ -157,9 +190,9 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, int32_t chunkR
 
   ByteBuffer teleport;
   teleport.writeVarInt(1); // teleport id
-  teleport.writeDouble(spawnX);
-  teleport.writeDouble(spawnY);
-  teleport.writeDouble(spawnZ);
+  teleport.writeDouble(viewportOriginX);
+  teleport.writeDouble(viewportOriginY);
+  teleport.writeDouble(cameraZ);
   teleport.writeDouble(0);
   teleport.writeDouble(0);
   teleport.writeDouble(0); // velocity
@@ -170,7 +203,7 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, int32_t chunkR
 
   ByteBuffer spawnPosition;
   spawnPosition.writeString("minecraft:overworld");
-  spawnPosition.writeLong(packPosition(8, 100, 8));
+  spawnPosition.writeLong(packPosition(static_cast<int32_t>(viewportOriginX), static_cast<int32_t>(viewportOriginY), static_cast<int32_t>(cameraZ)));
   spawnPosition.writeFloat(0);
   spawnPosition.writeFloat(0);
   writePacket(socketFd, packet::play::setDefaultSpawnPositionClientbound, spawnPosition);
@@ -185,44 +218,37 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, int32_t chunkR
   centerChunk.writeVarInt(0);
   writePacket(socketFd, packet::play::setChunkCacheCenterClientbound, centerChunk);
 
-  for (int32_t x = -chunkRadius; x <= chunkRadius; x++) {
-    for (int32_t z = -chunkRadius; z <= chunkRadius; z++) {
-      ByteBuffer chunkPacket = (x == 0 && z == 0) ? buildChunkPacket(x, z, spawnRoomBlockAt) : buildEmptyChunkPacket(x, z);
+  for (int32_t x = -chunkRadiusX; x <= chunkRadiusX; x++) {
+    for (int32_t z = -chunkRadiusZ; z <= chunkRadiusZ; z++) {
+      ByteBuffer chunkPacket = buildChunkPacket(x, z, [&room](int32_t wx, int32_t wy, int32_t wz) { return boxRoomBlockAt(room, wx, wy, wz); });
       writePacket(socketFd, packet::play::levelChunkWithLightClientbound, chunkPacket);
     }
   }
 }
 
-void spawnTestCameraDemo(int socketFd) {
+void spawnCamera(int socketFd) {
   writePacket(
     socketFd,
     packet::play::addEntityClientbound,
-    buildAddEntityPacket(testCameraAnchorEntityId, randomUuid(), blockDisplayEntityTypeId, testCameraAnchorX, testCameraAnchorY, testCameraAnchorZ)
+    buildAddEntityPacket(cameraAnchorEntityId, randomUuid(), blockDisplayEntityTypeId, viewportOriginX, viewportOriginY, cameraZ)
   );
-  // add_entity
   writePacket(
     socketFd,
     packet::play::teleportEntityClientbound,
-    buildTeleportEntityPacket(testCameraAnchorEntityId, testCameraAnchorX, testCameraAnchorY, testCameraAnchorZ, 0.0f, 0.0f, false)
+    buildTeleportEntityPacket(cameraAnchorEntityId, viewportOriginX, viewportOriginY, cameraZ, 0.0f, 0.0f, false)
   );
+  writePacket(socketFd, packet::play::setCameraClientbound, buildSetCameraPacket(cameraAnchorEntityId));
 
-  writePacket(
-    socketFd,
-    packet::play::addEntityClientbound,
-    buildAddEntityPacket(testDisplayEntityId, randomUuid(), blockDisplayEntityTypeId, testDisplayCenterX, testDisplayY, testDisplayZ)
-  );
-  writePacket(socketFd, packet::play::setEntityDataClientbound, buildBlockDisplayBlockStatePacket(testDisplayEntityId, goldBlockStateId));
-
-  writePacket(socketFd, packet::play::setCameraClientbound, buildSetCameraPacket(testCameraAnchorEntityId));
+  writePacket(socketFd, packet::play::postEffectsClientbound, buildPostEffectsPacket({"flatland:flatland_letterbox"}));
 }
 
-void runPlayLoop(int socketFd) {
+void runPlayLoop(int socketFd, PlayerSession &session) {
   using clock = std::chrono::steady_clock;
   constexpr auto keepAliveInterval = std::chrono::seconds(10);
-  constexpr auto animationInterval = std::chrono::milliseconds(50);
+  constexpr auto tickInterval = std::chrono::milliseconds(50);
   auto start = clock::now();
   auto lastKeepAlive = start;
-  auto lastAnimation = start;
+  auto lastTick = start;
 
   while (true) {
     pollfd pollTarget{socketFd, POLLIN, 0};
@@ -236,11 +262,10 @@ void runPlayLoop(int socketFd) {
       lastKeepAlive = now;
     }
 
-    if (now - lastAnimation >= animationInterval) {
+    if (now - lastTick >= tickInterval) {
       double elapsedSeconds = std::chrono::duration<double>(now - start).count();
-      double x = testDisplayCenterX + testDisplayAmplitude * std::sin(elapsedSeconds);
-      writePacket(socketFd, packet::play::teleportEntityClientbound, buildTeleportEntityPacket(testDisplayEntityId, x, testDisplayY, testDisplayZ, 0.0f, 0.0f, false));
-      lastAnimation = now;
+      session.runTick(elapsedSeconds);
+      lastTick = now;
     }
 
     if (pollResult <= 0) continue;
@@ -252,7 +277,14 @@ void runPlayLoop(int socketFd) {
 
 } // namespace
 
-void serveConnection(int socketFd, const ServerOptions &options, const ResourcePackInfo &resourcePack) {
+void serveConnection(
+  int socketFd,
+  const ServerOptions &options,
+  const ResourcePackInfo &resourcePack,
+  const Viewport &viewport,
+  const TextureRegistry &textures,
+  const std::function<void(PlayerSession &)> &joinCallback
+) {
   RawPacket handshake = readPacket(socketFd);
   ByteReader handshakeReader(handshake.payload.data(), handshake.payload.size());
   handshakeReader.readVarInt(); // protocol version
@@ -268,10 +300,17 @@ void serveConnection(int socketFd, const ServerOptions &options, const ResourceP
   handleLogin(socketFd);
   handleConfiguration(socketFd, clientReportedAddress, resourcePack);
 
-  constexpr int32_t chunkRadius = 3;
-  sendJoinSequence(socketFd, options, chunkRadius);
-  spawnTestCameraDemo(socketFd);
-  runPlayLoop(socketFd);
+  RoomBounds room = computePlayerCellBounds();
+  constexpr int32_t chunkRadius = 4;
+
+  sendJoinSequence(socketFd, options, room, chunkRadius, chunkRadius);
+  spawnCamera(socketFd);
+
+  int32_t nextEntityId = firstSpriteEntityId;
+  PlayerSession session(socketFd, viewport, textures, nextEntityId);
+  if (joinCallback) joinCallback(session);
+
+  runPlayLoop(socketFd, session);
 }
 
 } // namespace flatland

@@ -41,8 +41,53 @@ ByteBuffer buildBlockDisplayBlockStatePacket(int32_t entityId, int32_t blockStat
   ByteBuffer buffer;
   buffer.writeVarInt(entityId);
   buffer.writeByte(23);
-  buffer.writeVarInt(14);
+  buffer.writeVarInt(blockStateEntityDataTypeId);
   buffer.writeVarInt(blockStateId);
+  buffer.writeByte(0xFF);
+  return buffer;
+}
+
+ByteBuffer buildDisplayScalePacket(int32_t entityId, float scaleX, float scaleY, float scaleZ) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(entityId);
+  buffer.writeByte(12);
+  buffer.writeVarInt(vector3EntityDataTypeId);
+  buffer.writeFloat(scaleX);
+  buffer.writeFloat(scaleY);
+  buffer.writeFloat(scaleZ);
+  buffer.writeByte(0xFF);
+  return buffer;
+}
+
+ByteBuffer buildDisplayBrightnessOverridePacket(int32_t entityId, int32_t packedBrightness) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(entityId);
+  buffer.writeByte(16);
+  buffer.writeVarInt(intEntityDataTypeId);
+  buffer.writeVarInt(packedBrightness);
+  buffer.writeByte(0xFF);
+  return buffer;
+}
+
+ByteBuffer buildDisplayDimensionsPacket(int32_t entityId, float width, float height) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(entityId);
+  buffer.writeByte(20);
+  buffer.writeVarInt(floatEntityDataTypeId);
+  buffer.writeFloat(width);
+  buffer.writeByte(21);
+  buffer.writeVarInt(floatEntityDataTypeId);
+  buffer.writeFloat(height);
+  buffer.writeByte(0xFF);
+  return buffer;
+}
+
+ByteBuffer buildItemDisplayItemPacket(int32_t entityId, const ByteBuffer &itemStack) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(entityId);
+  buffer.writeByte(23);
+  buffer.writeVarInt(itemStackEntityDataTypeId);
+  buffer.writeBytes(itemStack.data());
   buffer.writeByte(0xFF);
   return buffer;
 }
