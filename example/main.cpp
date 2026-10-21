@@ -15,6 +15,14 @@ struct SpriteState {
   flatland::InputState input;
 };
 
+struct CursorState {
+  double x;
+  double y;
+  bool hasLast = false;
+  float lastYaw = 0.0f;
+  float lastPitch = 0.0f;
+};
+
 } // namespace
 
 int main() {
@@ -30,14 +38,15 @@ int main() {
   server.setViewport(viewport);
 
   bundle::archive assets(bundle_flatland_example_assets_archive());
-  flatland::TextureId sprite = server.registerTexture("example", flatland::loadBundledBytes(assets, "textures/example_sprite.png"));
+  flatland::TextureId orangeSprite = server.registerTexture("example", flatland::loadBundledBytes(assets, "textures/example_sprite.png"));
+  flatland::TextureId blueSprite = server.registerTexture("blue", flatland::loadBundledBytes(assets, "textures/blue_sprite.png"));
 
-  server.onPlayerJoin([sprite, viewport](flatland::PlayerSession &session) {
+  server.onPlayerJoin([orangeSprite, blueSprite, viewport](flatland::PlayerSession &session) {
     auto state = std::make_shared<SpriteState>();
     state->x = viewport.width / 2.0;
     state->y = viewport.height / 2.0;
 
-    flatland::SpriteId handle = session.createSprite(sprite, state->x, state->y);
+    flatland::SpriteId handle = session.createSprite(orangeSprite, state->x, state->y);
 
     session.onInput([state](flatland::PlayerSession &, const flatland::InputState &input) { state->input = input; });
 
@@ -45,13 +54,35 @@ int main() {
     session.onTick([handle, state, viewport](flatland::PlayerSession &playerSession, double elapsedSeconds) {
       double dt = elapsedSeconds - state->lastElapsedSeconds;
       state->lastElapsedSeconds = elapsedSeconds;
-      if (dt <= 0.0 || dt > 1.0) return;
+      if (dt <= 0.0 || dt > 0.25) return;
 
       double dx = (state->input.right ? 1.0 : 0.0) - (state->input.left ? 1.0 : 0.0);
       double dy = (state->input.backward ? 1.0 : 0.0) - (state->input.forward ? 1.0 : 0.0);
       state->x = std::clamp(state->x + dx * pixelsPerSecond * dt, 0.0, static_cast<double>(viewport.width));
       state->y = std::clamp(state->y + dy * pixelsPerSecond * dt, 0.0, static_cast<double>(viewport.height));
       playerSession.moveSprite(handle, state->x, state->y);
+    });
+
+    auto cursor = std::make_shared<CursorState>();
+    cursor->x = viewport.width / 2.0;
+    cursor->y = viewport.height / 2.0;
+    flatland::SpriteId cursorHandle = session.createSprite(blueSprite, cursor->x, cursor->y);
+
+    constexpr double pixelsPerDegree = 4.0;
+    session.onLook([cursorHandle, cursor, viewport](flatland::PlayerSession &playerSession, float yaw, float pitch) {
+      if (cursor->hasLast) {
+        float yawDelta = yaw - cursor->lastYaw;
+        while (yawDelta > 180.0f) yawDelta -= 360.0f;
+        while (yawDelta < -180.0f) yawDelta += 360.0f;
+        float pitchDelta = pitch - cursor->lastPitch;
+
+        cursor->x = std::clamp(cursor->x + yawDelta * pixelsPerDegree, 0.0, static_cast<double>(viewport.width));
+        cursor->y = std::clamp(cursor->y + pitchDelta * pixelsPerDegree, 0.0, static_cast<double>(viewport.height));
+        playerSession.moveSprite(cursorHandle, cursor->x, cursor->y);
+      }
+      cursor->lastYaw = yaw;
+      cursor->lastPitch = pitch;
+      cursor->hasLast = true;
     });
 
     session.onLeftClick([](flatland::PlayerSession &) {

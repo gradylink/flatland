@@ -29,15 +29,13 @@ constexpr int32_t playerEntityId = 1;
 constexpr int32_t cameraAnchorEntityId = 2;
 constexpr int32_t firstSpriteEntityId = 100;
 
-constexpr double cameraZ = viewportPlaneZ - 20.0;
-
 struct RoomBounds {
   int32_t minX, maxX, minY, maxY, minZ, maxZ;
 };
 
 RoomBounds computePlayerCellBounds() {
   int32_t spawnX = static_cast<int32_t>(std::floor(viewportOriginX));
-  int32_t spawnY = static_cast<int32_t>(std::floor(viewportOriginY));
+  int32_t spawnY = static_cast<int32_t>(std::floor(playerFeetY));
   int32_t spawnZ = static_cast<int32_t>(std::floor(cameraZ));
 
   RoomBounds bounds;
@@ -193,7 +191,7 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, const RoomBoun
   ByteBuffer teleport;
   teleport.writeVarInt(1); // teleport id
   teleport.writeDouble(viewportOriginX);
-  teleport.writeDouble(viewportOriginY);
+  teleport.writeDouble(playerFeetY);
   teleport.writeDouble(cameraZ);
   teleport.writeDouble(0);
   teleport.writeDouble(0);
@@ -205,7 +203,7 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, const RoomBoun
 
   ByteBuffer spawnPosition;
   spawnPosition.writeString("minecraft:overworld");
-  spawnPosition.writeLong(packPosition(static_cast<int32_t>(viewportOriginX), static_cast<int32_t>(viewportOriginY), static_cast<int32_t>(cameraZ)));
+  spawnPosition.writeLong(packPosition(static_cast<int32_t>(viewportOriginX), static_cast<int32_t>(playerFeetY), static_cast<int32_t>(cameraZ)));
   spawnPosition.writeFloat(0);
   spawnPosition.writeFloat(0);
   writePacket(socketFd, packet::play::setDefaultSpawnPositionClientbound, spawnPosition);
@@ -228,17 +226,20 @@ void sendJoinSequence(int socketFd, const ServerOptions &options, const RoomBoun
   }
 }
 
-void spawnCamera(int socketFd) {
+void spawnCameraSeat(int socketFd) {
   writePacket(
     socketFd,
     packet::play::addEntityClientbound,
-    buildAddEntityPacket(cameraAnchorEntityId, randomUuid(), blockDisplayEntityTypeId, viewportOriginX, viewportOriginY, cameraZ)
+    buildAddEntityPacket(cameraAnchorEntityId, randomUuid(), blockDisplayEntityTypeId, viewportOriginX, playerFeetY, cameraZ)
   );
-  writePacket(
-    socketFd,
-    packet::play::teleportEntityClientbound,
-    buildTeleportEntityPacket(cameraAnchorEntityId, viewportOriginX, viewportOriginY, cameraZ, 0.0f, 0.0f, false)
-  );
+  writePacket(socketFd, packet::play::teleportEntityClientbound, buildTeleportEntityPacket(cameraAnchorEntityId, viewportOriginX, playerFeetY, cameraZ, 0.0f, 0.0f, false));
+
+  ByteBuffer setPassengers;
+  setPassengers.writeVarInt(cameraAnchorEntityId);
+  setPassengers.writeVarInt(1);
+  setPassengers.writeVarInt(playerEntityId);
+  writePacket(socketFd, packet::play::setPassengersClientbound, setPassengers);
+
   writePacket(socketFd, packet::play::setCameraClientbound, buildSetCameraPacket(cameraAnchorEntityId));
 
   writePacket(socketFd, packet::play::postEffectsClientbound, buildPostEffectsPacket({"flatland:flatland_letterbox"}));
@@ -247,7 +248,7 @@ void spawnCamera(int socketFd) {
 void runPlayLoop(int socketFd, PlayerSession &session) {
   using clock = std::chrono::steady_clock;
   constexpr auto keepAliveInterval = std::chrono::seconds(10);
-  constexpr auto tickInterval = std::chrono::milliseconds(50);
+  constexpr auto tickInterval = std::chrono::milliseconds(25);
   auto start = clock::now();
   auto lastKeepAlive = start;
   auto lastTick = start;
@@ -312,7 +313,7 @@ void serveConnection(
   constexpr int32_t chunkRadius = 4;
 
   sendJoinSequence(socketFd, options, room, chunkRadius, chunkRadius);
-  spawnCamera(socketFd);
+  spawnCameraSeat(socketFd);
 
   int32_t nextEntityId = firstSpriteEntityId;
   PlayerSession session(socketFd, viewport, textures, nextEntityId);

@@ -4,6 +4,7 @@
 #include "sha1.hpp"
 #include <cstdio>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <thread>
@@ -76,6 +77,9 @@ void Server::run() {
       if (running) continue;
       break;
     }
+
+    int noDelay = 1;
+    ::setsockopt(clientFd, IPPROTO_TCP, TCP_NODELAY, &noDelay, sizeof(noDelay));
 
     ServerOptions connectionOptions = options;
     std::thread([clientFd, connectionOptions, resourcePackInfo, this]() {

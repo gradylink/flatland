@@ -44,6 +44,7 @@ constexpr int32_t setCameraClientbound = 95;
 constexpr int32_t setChunkCacheCenterClientbound = 96;
 constexpr int32_t setDefaultSpawnPositionClientbound = 99;
 constexpr int32_t setEntityDataClientbound = 101;
+constexpr int32_t setPassengersClientbound = 109;
 constexpr int32_t teleportEntityClientbound = 35;
 
 constexpr int32_t keepAliveServerbound = 28;

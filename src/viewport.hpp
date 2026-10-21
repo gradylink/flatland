@@ -14,6 +14,10 @@ constexpr double viewportOriginX = 8.0;
 constexpr double viewportOriginY = 101.5;
 constexpr double viewportPlaneZ = 8.0;
 
+constexpr double cameraZ = viewportPlaneZ - 20.0;
+
+constexpr double playerFeetY = 100.0;
+
 inline double viewportWorldHalfWidth(const Viewport &viewport) { return (viewport.width / pixelsPerBlock) / 2.0; }
 inline double viewportWorldHalfHeight(const Viewport &viewport) { return (viewport.height / pixelsPerBlock) / 2.0; }
 
