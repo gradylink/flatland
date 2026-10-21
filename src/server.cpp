@@ -81,7 +81,12 @@ void Server::run() {
     std::thread([clientFd, connectionOptions, resourcePackInfo, this]() {
       try {
         serveConnection(clientFd, connectionOptions, resourcePackInfo, viewport, textures, joinCallback);
+      } catch (const std::exception &error) {
+        std::fprintf(stderr, "flatland: connection on fd %d terminated by exception: %s\n", clientFd, error.what());
+        std::fflush(stderr);
       } catch (...) {
+        std::fprintf(stderr, "flatland: connection on fd %d terminated by an unknown exception\n", clientFd);
+        std::fflush(stderr);
       }
       ::close(clientFd);
     }).detach();

@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(FLATLAND_BUILD_EXAMPLES "Build the example server" ON)
+option(FLATLAND_BUILD_EXAMPLE "Build the example server" ON)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cl-bootstrap.cmake)
 cl_repo()
@@ -34,6 +34,6 @@ bundle_add(flatland_shaders
 )
 target_link_libraries(flatland PUBLIC flatland_shaders)
 
-if(FLATLAND_BUILD_EXAMPLES)
-  add_subdirectory(examples)
+if(FLATLAND_BUILD_EXAMPLE)
+  add_subdirectory(example)
 endif()

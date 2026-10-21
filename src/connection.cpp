@@ -11,6 +11,8 @@
 #include "viewport.hpp"
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <exception>
 #include <functional>
 #include <poll.h>
 #include <string>
@@ -271,7 +273,13 @@ void runPlayLoop(int socketFd, PlayerSession &session) {
     if (pollResult <= 0) continue;
     if (pollTarget.revents & (POLLHUP | POLLERR)) return;
 
-    readPacket(socketFd);
+    RawPacket packet = readPacket(socketFd);
+    try {
+      session.handleServerboundPacket(packet.packetId, packet.payload.data(), packet.payload.size());
+    } catch (const std::exception &error) {
+      std::fprintf(stderr, "flatland: failed to parse serverbound packet id=%d len=%zu: %s\n", packet.packetId, packet.payload.size(), error.what());
+      std::fflush(stderr);
+    }
   }
 }
 

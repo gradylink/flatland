@@ -17,7 +17,7 @@ constexpr double viewportPlaneZ = 8.0;
 inline double viewportWorldHalfWidth(const Viewport &viewport) { return (viewport.width / pixelsPerBlock) / 2.0; }
 inline double viewportWorldHalfHeight(const Viewport &viewport) { return (viewport.height / pixelsPerBlock) / 2.0; }
 
-inline double viewportPixelToWorldX(const Viewport &viewport, double px) { return viewportOriginX - viewportWorldHalfWidth(viewport) + px / pixelsPerBlock; }
+inline double viewportPixelToWorldX(const Viewport &viewport, double px) { return viewportOriginX + viewportWorldHalfWidth(viewport) - px / pixelsPerBlock; }
 inline double viewportPixelToWorldY(const Viewport &viewport, double py) { return viewportOriginY + viewportWorldHalfHeight(viewport) - py / pixelsPerBlock; }
 
 } // namespace flatland

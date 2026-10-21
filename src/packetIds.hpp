@@ -47,6 +47,14 @@ constexpr int32_t setEntityDataClientbound = 101;
 constexpr int32_t teleportEntityClientbound = 35;
 
 constexpr int32_t keepAliveServerbound = 28;
+constexpr int32_t movePlayerPosRotServerbound = 31;
+constexpr int32_t movePlayerRotServerbound = 32;
+constexpr int32_t playerActionServerbound = 41;
+constexpr int32_t playerCommandServerbound = 42;
+constexpr int32_t playerInputServerbound = 43;
+constexpr int32_t punchServerbound = 46;
+constexpr int32_t setCarriedItemServerbound = 54;
+constexpr int32_t useItemServerbound = 67;
 } // namespace play
 
 namespace status {
