@@ -2,6 +2,7 @@
 #include "byteBuffer.hpp"
 #include "entities.hpp"
 #include "itemStack.hpp"
+#include "nbt.hpp"
 #include "packetIds.hpp"
 #include "packetIo.hpp"
 #include "sound.hpp"
@@ -90,6 +91,13 @@ void PlayerSession::playSound(const std::string &soundEventName, float volume, f
 
 void PlayerSession::stopSound(const std::string &soundEventName) { writePacket(socketFd, packet::play::stopSoundClientbound, buildStopSoundPacket(soundEventName)); }
 
+void PlayerSession::sendChatMessage(const std::string &text, bool actionBar) {
+  ByteBuffer buffer;
+  NbtWriter(buffer).writeAnonymousString(text);
+  buffer.writeBool(actionBar);
+  writePacket(socketFd, packet::play::systemChatClientbound, buffer);
+}
+
 void PlayerSession::onTick(std::function<void(PlayerSession &, double)> callback) { tickCallback = std::move(callback); }
 void PlayerSession::onInput(std::function<void(PlayerSession &, const InputState &)> callback) { inputCallback = std::move(callback); }
 void PlayerSession::onLook(std::function<void(PlayerSession &, float, float)> callback) { lookCallback = std::move(callback); }
@@ -99,6 +107,7 @@ void PlayerSession::onSwapHands(std::function<void(PlayerSession &)> callback) {
 void PlayerSession::onOpenInventory(std::function<void(PlayerSession &)> callback) { openInventoryCallback = std::move(callback); }
 void PlayerSession::onLeftClick(std::function<void(PlayerSession &)> callback) { leftClickCallback = std::move(callback); }
 void PlayerSession::onRightClick(std::function<void(PlayerSession &)> callback) { rightClickCallback = std::move(callback); }
+void PlayerSession::onChatMessage(std::function<void(PlayerSession &, const std::string &)> callback) { chatMessageCallback = std::move(callback); }
 
 void PlayerSession::runTick(double elapsedSeconds) {
   if (tickCallback) tickCallback(*this, elapsedSeconds);
@@ -155,6 +164,10 @@ void PlayerSession::handleServerboundPacket(int32_t packetId, const uint8_t *pay
 
   } else if (packetId == packet::play::useItemServerbound) {
     if (rightClickCallback) rightClickCallback(*this);
+
+  } else if (packetId == packet::play::chatServerbound) {
+    std::string message = reader.readString();
+    if (chatMessageCallback) chatMessageCallback(*this, message);
   }
 }
 

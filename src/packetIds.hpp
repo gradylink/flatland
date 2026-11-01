@@ -44,6 +44,7 @@ constexpr int32_t postEffectsClientbound = 83;
 constexpr int32_t entitySoundEffectClientbound = 118;
 constexpr int32_t soundEffectClientbound = 119;
 constexpr int32_t stopSoundClientbound = 121;
+constexpr int32_t systemChatClientbound = 124;
 constexpr int32_t setCameraClientbound = 95;
 constexpr int32_t setChunkCacheCenterClientbound = 96;
 constexpr int32_t setDefaultSpawnPositionClientbound = 99;
@@ -51,6 +52,7 @@ constexpr int32_t setEntityDataClientbound = 101;
 constexpr int32_t setPassengersClientbound = 109;
 constexpr int32_t teleportEntityClientbound = 35;
 
+constexpr int32_t chatServerbound = 9;
 constexpr int32_t keepAliveServerbound = 28;
 constexpr int32_t movePlayerPosRotServerbound = 31;
 constexpr int32_t movePlayerRotServerbound = 32;

@@ -35,6 +35,8 @@ public:
   void playSound(const std::string &soundEventName, float volume = 1.0f, float pitch = 1.0f);
   void stopSound(const std::string &soundEventName);
 
+  void sendChatMessage(const std::string &text, bool actionBar = false);
+
   void onTick(std::function<void(PlayerSession &, double)> callback);
 
   void onInput(std::function<void(PlayerSession &, const InputState &)> callback);
@@ -45,6 +47,7 @@ public:
   void onOpenInventory(std::function<void(PlayerSession &)> callback);
   void onLeftClick(std::function<void(PlayerSession &)> callback);
   void onRightClick(std::function<void(PlayerSession &)> callback);
+  void onChatMessage(std::function<void(PlayerSession &, const std::string &message)> callback);
 
   void runTick(double elapsedSeconds);
   void handleServerboundPacket(int32_t packetId, const uint8_t *payload, size_t length);
@@ -70,6 +73,7 @@ private:
   std::function<void(PlayerSession &)> openInventoryCallback;
   std::function<void(PlayerSession &)> leftClickCallback;
   std::function<void(PlayerSession &)> rightClickCallback;
+  std::function<void(PlayerSession &, const std::string &)> chatMessageCallback;
 };
 
 } // namespace flatland

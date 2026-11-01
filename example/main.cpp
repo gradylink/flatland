@@ -110,6 +110,11 @@ int main() {
       std::printf("drop item (stack=%s)\n", dropStack ? "true" : "false");
       std::fflush(stdout);
     });
+    session.onChatMessage([](flatland::PlayerSession &playerSession, const std::string &message) {
+      playerSession.sendChatMessage("you said: " + message);
+      std::printf("chat: %s\n", message.c_str());
+      std::fflush(stdout);
+    });
     session.onSwapHands([](flatland::PlayerSession &) {
       std::printf("swap hands\n");
       std::fflush(stdout);
