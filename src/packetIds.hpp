@@ -32,6 +32,7 @@ namespace play {
 constexpr int32_t addEntityClientbound = 1;
 constexpr int32_t chunkBatchFinishedClientbound = 11;
 constexpr int32_t chunkBatchStartClientbound = 12;
+constexpr int32_t containerSetSlotClientbound = 20;
 constexpr int32_t gameEventClientbound = 39;
 constexpr int32_t keepAliveClientbound = 45;
 constexpr int32_t levelChunkWithLightClientbound = 46;

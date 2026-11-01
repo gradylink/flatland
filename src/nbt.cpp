@@ -62,4 +62,10 @@ void NbtWriter::writeString(const std::string &name, const std::string &value) {
   buffer.writeBytes(reinterpret_cast<const uint8_t *>(value.data()), value.size());
 }
 
+void NbtWriter::writeAnonymousString(const std::string &value) {
+  buffer.writeByte(static_cast<uint8_t>(NbtTagType::String));
+  buffer.writeUnsignedShort(static_cast<uint16_t>(value.size()));
+  buffer.writeBytes(reinterpret_cast<const uint8_t *>(value.data()), value.size());
+}
+
 } // namespace flatland

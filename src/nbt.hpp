@@ -40,6 +40,7 @@ public:
   void writeFloat(const std::string &name, float value);
   void writeDouble(const std::string &name, double value);
   void writeString(const std::string &name, const std::string &value);
+  void writeAnonymousString(const std::string &value);
 
 private:
   void writeTagHeader(NbtTagType type, const std::string &name);

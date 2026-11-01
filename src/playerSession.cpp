@@ -16,10 +16,26 @@ constexpr int32_t playerActionDropItem = 5;
 constexpr int32_t playerActionSwapItemWithOffhand = 7;
 constexpr int32_t playerCommandOpenInventory = 5;
 
+constexpr int32_t playerInventoryWindowId = 0;
+constexpr int16_t firstHotbarSlot = 36;
+constexpr int16_t hotbarSlotCount = 9;
+
 } // namespace
 
 PlayerSession::PlayerSession(int socketFd, const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds, int32_t &nextEntityId)
-    : socketFd(socketFd), viewport(viewport), textures(textures), sounds(sounds), nextEntityId(nextEntityId) {}
+    : socketFd(socketFd), viewport(viewport), textures(textures), sounds(sounds), nextEntityId(nextEntityId) {
+  ensureHotbarItem();
+}
+
+void PlayerSession::ensureHotbarItem() {
+  for (int16_t slot = firstHotbarSlot; slot < firstHotbarSlot + hotbarSlotCount; slot++) {
+    writePacket(
+      socketFd,
+      packet::play::containerSetSlotClientbound,
+      buildContainerSetSlotPacket(playerInventoryWindowId, nextContainerStateId++, slot, buildHotbarPlaceholderItemStack())
+    );
+  }
+}
 
 SpriteId PlayerSession::createSprite(TextureId texture, double x, double y) {
   int32_t entityId = nextEntityId++;
@@ -120,10 +136,9 @@ void PlayerSession::handleServerboundPacket(int32_t packetId, const uint8_t *pay
 
   } else if (packetId == packet::play::playerActionServerbound) {
     int32_t action = reader.readVarInt();
-    if (action == playerActionDropItem && dropItemCallback) {
-      dropItemCallback(*this, false);
-    } else if (action == playerActionDropAllItems && dropItemCallback) {
-      dropItemCallback(*this, true);
+    if (action == playerActionDropItem || action == playerActionDropAllItems) {
+      ensureHotbarItem();
+      if (dropItemCallback) dropItemCallback(*this, action == playerActionDropAllItems);
     } else if (action == playerActionSwapItemWithOffhand && swapHandsCallback) {
       swapHandsCallback(*this);
     }

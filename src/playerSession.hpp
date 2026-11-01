@@ -50,6 +50,8 @@ public:
   void handleServerboundPacket(int32_t packetId, const uint8_t *payload, size_t length);
 
 private:
+  void ensureHotbarItem();
+
   int socketFd;
   const Viewport &viewport;
   const TextureRegistry &textures;
@@ -57,6 +59,7 @@ private:
   int32_t &nextEntityId;
   std::unordered_map<SpriteId, int32_t> spriteEntityIds;
   SpriteId nextSpriteId = 0;
+  int32_t nextContainerStateId = 0;
   std::function<void(PlayerSession &, double)> tickCallback;
 
   std::function<void(PlayerSession &, const InputState &)> inputCallback;

@@ -38,6 +38,9 @@ constexpr const char *packMcmeta = R"({
   }
 })";
 
+constexpr const char *emptyItemDefinition = R"({"model":{"type":"minecraft:model","model":"flatland:item/empty"}})";
+constexpr const char *emptyItemModel = R"({"elements":[]})";
+
 } // namespace
 
 std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds) {
@@ -45,6 +48,8 @@ std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const Textur
 
   ZipWriter zip;
   zip.addFile("pack.mcmeta", packMcmeta);
+  zip.addFile("assets/flatland/items/empty.json", emptyItemDefinition);
+  zip.addFile("assets/flatland/models/item/empty.json", emptyItemModel);
   for (const bundle::entry &entry : shaders) {
     std::string instantiated = instantiateShaderTemplate(shaders.load_text(entry), viewport);
     zip.addFile("assets/" + entry.name(), instantiated);
