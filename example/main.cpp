@@ -28,7 +28,7 @@ struct CursorState {
 int main() {
   flatland::ServerOptions options;
   options.port = 25565;
-  options.motd = "Flatland";
+  options.motd = "Flatland Example";
 
   flatland::Server server(options);
 
