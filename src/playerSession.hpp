@@ -1,4 +1,5 @@
 #pragma once
+#include "soundRegistry.hpp"
 #include "textureRegistry.hpp"
 #include "viewport.hpp"
 #include <cstdint>
@@ -21,11 +22,18 @@ struct InputState {
 
 class PlayerSession {
 public:
-  PlayerSession(int socketFd, const Viewport &viewport, const TextureRegistry &textures, int32_t &nextEntityId);
+  PlayerSession(int socketFd, const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds, int32_t &nextEntityId);
 
   SpriteId createSprite(TextureId texture, double x, double y);
   void moveSprite(SpriteId sprite, double x, double y);
   void removeSprite(SpriteId sprite);
+
+  void playSound(SoundId sound, float volume = 1.0f, float pitch = 1.0f);
+  void stopSound(SoundId sound);
+  void stopAllSounds();
+
+  void playSound(const std::string &soundEventName, float volume = 1.0f, float pitch = 1.0f);
+  void stopSound(const std::string &soundEventName);
 
   void onTick(std::function<void(PlayerSession &, double)> callback);
 
@@ -45,6 +53,7 @@ private:
   int socketFd;
   const Viewport &viewport;
   const TextureRegistry &textures;
+  const SoundRegistry &sounds;
   int32_t &nextEntityId;
   std::unordered_map<SpriteId, int32_t> spriteEntityIds;
   SpriteId nextSpriteId = 0;

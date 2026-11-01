@@ -35,10 +35,12 @@ void Server::setViewport(Viewport newViewport) { viewport = newViewport; }
 
 TextureId Server::registerTexture(const std::string &name, std::vector<uint8_t> pngBytes) { return textures.registerTexture(name, std::move(pngBytes)); }
 
+SoundId Server::registerSound(const std::string &name, std::vector<uint8_t> oggBytes) { return sounds.registerSound(name, std::move(oggBytes)); }
+
 void Server::onPlayerJoin(std::function<void(PlayerSession &)> callback) { joinCallback = std::move(callback); }
 
 void Server::run() {
-  std::vector<uint8_t> resourcePackBytes = buildResourcePackZip(viewport, textures);
+  std::vector<uint8_t> resourcePackBytes = buildResourcePackZip(viewport, textures, sounds);
   std::string resourcePackSha1 = toHexString(sha1(resourcePackBytes));
   uint16_t resourcePackPort = static_cast<uint16_t>(options.port + 1);
 
@@ -84,7 +86,7 @@ void Server::run() {
     ServerOptions connectionOptions = options;
     std::thread([clientFd, connectionOptions, resourcePackInfo, this]() {
       try {
-        serveConnection(clientFd, connectionOptions, resourcePackInfo, viewport, textures, joinCallback);
+        serveConnection(clientFd, connectionOptions, resourcePackInfo, viewport, textures, sounds, joinCallback);
       } catch (const std::exception &error) {
         std::fprintf(stderr, "flatland: connection on fd %d terminated by exception: %s\n", clientFd, error.what());
         std::fflush(stderr);

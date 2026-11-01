@@ -1,6 +1,7 @@
 #pragma once
 #include "httpServer.hpp"
 #include "playerSession.hpp"
+#include "soundRegistry.hpp"
 #include "textureRegistry.hpp"
 #include "viewport.hpp"
 #include <atomic>
@@ -28,6 +29,7 @@ public:
 
   void setViewport(Viewport viewport);
   TextureId registerTexture(const std::string &name, std::vector<uint8_t> pngBytes);
+  SoundId registerSound(const std::string &name, std::vector<uint8_t> oggBytes);
   void onPlayerJoin(std::function<void(PlayerSession &)> callback);
 
   void run();
@@ -37,6 +39,7 @@ private:
   ServerOptions options;
   Viewport viewport;
   TextureRegistry textures;
+  SoundRegistry sounds;
   std::function<void(PlayerSession &)> joinCallback;
   int listenFd = -1;
   std::atomic<bool> running{false};

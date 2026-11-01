@@ -1,6 +1,7 @@
 #pragma once
 #include "playerSession.hpp"
 #include "server.hpp"
+#include "soundRegistry.hpp"
 #include "textureRegistry.hpp"
 #include "viewport.hpp"
 #include <cstdint>
@@ -20,6 +21,7 @@ void serveConnection(
   const ResourcePackInfo &resourcePack,
   const Viewport &viewport,
   const TextureRegistry &textures,
+  const SoundRegistry &sounds,
   const std::function<void(PlayerSession &)> &joinCallback
 );
 

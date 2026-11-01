@@ -1,4 +1,5 @@
 #pragma once
+#include "soundRegistry.hpp"
 #include "textureRegistry.hpp"
 #include "viewport.hpp"
 #include <cstdint>
@@ -6,6 +7,6 @@
 
 namespace flatland {
 
-std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const TextureRegistry &textures);
+std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds);
 
 }

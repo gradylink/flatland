@@ -292,6 +292,7 @@ void serveConnection(
   const ResourcePackInfo &resourcePack,
   const Viewport &viewport,
   const TextureRegistry &textures,
+  const SoundRegistry &sounds,
   const std::function<void(PlayerSession &)> &joinCallback
 ) {
   RawPacket handshake = readPacket(socketFd);
@@ -316,7 +317,7 @@ void serveConnection(
   spawnCameraSeat(socketFd);
 
   int32_t nextEntityId = firstSpriteEntityId;
-  PlayerSession session(socketFd, viewport, textures, nextEntityId);
+  PlayerSession session(socketFd, viewport, textures, sounds, nextEntityId);
   if (joinCallback) joinCallback(session);
 
   runPlayLoop(socketFd, session);

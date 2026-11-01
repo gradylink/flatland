@@ -4,6 +4,7 @@
 #include "itemStack.hpp"
 #include "packetIds.hpp"
 #include "packetIo.hpp"
+#include "sound.hpp"
 #include "uuid.hpp"
 
 namespace flatland {
@@ -17,8 +18,8 @@ constexpr int32_t playerCommandOpenInventory = 5;
 
 } // namespace
 
-PlayerSession::PlayerSession(int socketFd, const Viewport &viewport, const TextureRegistry &textures, int32_t &nextEntityId)
-    : socketFd(socketFd), viewport(viewport), textures(textures), nextEntityId(nextEntityId) {}
+PlayerSession::PlayerSession(int socketFd, const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds, int32_t &nextEntityId)
+    : socketFd(socketFd), viewport(viewport), textures(textures), sounds(sounds), nextEntityId(nextEntityId) {}
 
 SpriteId PlayerSession::createSprite(TextureId texture, double x, double y) {
   int32_t entityId = nextEntityId++;
@@ -56,6 +57,22 @@ void PlayerSession::removeSprite(SpriteId sprite) {
 
   spriteEntityIds.erase(it);
 }
+
+void PlayerSession::playSound(SoundId sound, float volume, float pitch) { playSound(sounds.soundEventName(sound), volume, pitch); }
+
+void PlayerSession::stopSound(SoundId sound) { stopSound(sounds.soundEventName(sound)); }
+
+void PlayerSession::stopAllSounds() { writePacket(socketFd, packet::play::stopSoundClientbound, buildStopAllSoundsPacket()); }
+
+void PlayerSession::playSound(const std::string &soundEventName, float volume, float pitch) {
+  writePacket(
+    socketFd,
+    packet::play::soundEffectClientbound,
+    buildSoundEffectPacket(soundEventName, soundCategoryPlayer, viewportOriginX, playerFeetY, cameraZ, volume, pitch, 0)
+  );
+}
+
+void PlayerSession::stopSound(const std::string &soundEventName) { writePacket(socketFd, packet::play::stopSoundClientbound, buildStopSoundPacket(soundEventName)); }
 
 void PlayerSession::onTick(std::function<void(PlayerSession &, double)> callback) { tickCallback = std::move(callback); }
 void PlayerSession::onInput(std::function<void(PlayerSession &, const InputState &)> callback) { inputCallback = std::move(callback); }

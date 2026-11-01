@@ -40,7 +40,7 @@ constexpr const char *packMcmeta = R"({
 
 } // namespace
 
-std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const TextureRegistry &textures) {
+std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds) {
   bundle::archive shaders(bundle_flatland_shaders_archive());
 
   ZipWriter zip;
@@ -50,6 +50,7 @@ std::vector<uint8_t> buildResourcePackZip(const Viewport &viewport, const Textur
     zip.addFile("assets/" + entry.name(), instantiated);
   }
   textures.addResourcePackFiles(zip);
+  sounds.addResourcePackFiles(zip);
 
   return zip.finish();
 }
