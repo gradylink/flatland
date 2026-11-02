@@ -24,30 +24,18 @@ struct CursorState {
   float lastPitch = 0.0f;
 };
 
-} // namespace
+void configureMainApp(flatland::App &app, bundle::archive &assets, flatland::Viewport viewport, uint16_t port) {
+  app.setViewport(viewport);
 
-int main() {
-  flatland::ServerOptions options;
-  options.port = 25565;
-  options.motd = "Flatland Example";
+  flatland::TextureId orangeSprite = app.registerTexture("example", flatland::loadBundledBytes(assets, "textures/example_sprite.png"));
+  flatland::TextureId blueSprite = app.registerTexture("blue", flatland::loadBundledBytes(assets, "textures/blue_sprite.png"));
 
-  flatland::Server server(options);
-
-  flatland::Viewport viewport;
-  viewport.width = 480;
-  viewport.height = 360;
-  server.setViewport(viewport);
-
-  bundle::archive assets(bundle_flatland_example_assets_archive());
-  flatland::TextureId orangeSprite = server.registerTexture("example", flatland::loadBundledBytes(assets, "textures/example_sprite.png"));
-  flatland::TextureId blueSprite = server.registerTexture("blue", flatland::loadBundledBytes(assets, "textures/blue_sprite.png"));
-
-  flatland::SoundId clickSound = server.registerSound("click", flatland::loadBundledBytes(assets, "sounds/click.ogg"));
-  flatland::SoundId ambienceSound = server.registerSound("ambience", flatland::loadBundledBytes(assets, "sounds/ambience.ogg"));
+  flatland::SoundId clickSound = app.registerSound("click", flatland::loadBundledBytes(assets, "sounds/click.ogg"));
+  flatland::SoundId ambienceSound = app.registerSound("ambience", flatland::loadBundledBytes(assets, "sounds/ambience.ogg"));
 
   constexpr double ambienceLoopSeconds = 2.0;
 
-  server.onPlayerJoin([orangeSprite, blueSprite, clickSound, ambienceSound, viewport, ambienceLoopSeconds](flatland::PlayerSession &session) {
+  app.onPlayerJoin([orangeSprite, blueSprite, clickSound, ambienceSound, viewport, ambienceLoopSeconds, port](flatland::PlayerSession &session) {
     auto state = std::make_shared<SpriteState>();
     state->x = viewport.width / 2.0;
     state->y = viewport.height / 2.0;
@@ -106,9 +94,10 @@ int main() {
       std::printf("right click\n");
       std::fflush(stdout);
     });
-    session.onDropItem([](flatland::PlayerSession &, bool dropStack) {
-      std::printf("drop item (stack=%s)\n", dropStack ? "true" : "false");
+    session.onDropItem([port](flatland::PlayerSession &playerSession, bool dropStack) {
+      std::printf("drop item (stack=%s) - transferring to 127.0.0.1\n", dropStack ? "true" : "false");
       std::fflush(stdout);
+      playerSession.transferTo("swizzle-laptop", port);
     });
     session.onChatMessage([](flatland::PlayerSession &playerSession, const std::string &message) {
       playerSession.sendChatMessage("you said: " + message);
@@ -127,6 +116,40 @@ int main() {
       std::printf("hotbar slot -> %d\n", slot);
       std::fflush(stdout);
     });
+  });
+}
+
+void configureLoopbackApp(flatland::App &app, bundle::archive &assets, flatland::Viewport viewport) {
+  app.setViewport(viewport);
+  flatland::TextureId loopbackSprite = app.registerTexture("blue", flatland::loadBundledBytes(assets, "textures/blue_sprite.png"));
+  app.onPlayerJoin([loopbackSprite, viewport](flatland::PlayerSession &session) { session.createSprite(loopbackSprite, viewport.width / 2.0, viewport.height / 2.0); });
+}
+
+} // namespace
+
+int main() {
+  flatland::ServerOptions options;
+  options.port = 25565;
+  options.motd = "Flatland Example";
+
+  flatland::Server server(options);
+
+  flatland::Viewport viewport;
+  viewport.width = 480;
+  viewport.height = 360;
+
+  bundle::archive assets(bundle_flatland_example_assets_archive());
+
+  server.onResolveApp([&assets, viewport, port = options.port](const std::string &hostname, flatland::App &app) {
+    std::printf("%s\n\n", hostname.c_str());
+    std::fflush(stdout);
+
+    if (hostname == "swizzle-laptop") {
+      configureLoopbackApp(app, assets, viewport);
+      return;
+    }
+
+    configureMainApp(app, assets, viewport, port);
   });
 
   std::printf("Listening on port %u...\n", options.port);

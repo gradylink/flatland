@@ -6,7 +6,7 @@
 #include "packetIo.hpp"
 #include "playerSession.hpp"
 #include "registries.hpp"
-#include "textureRegistry.hpp"
+#include "transfer.hpp"
 #include "uuid.hpp"
 #include "viewport.hpp"
 #include <chrono>
@@ -73,6 +73,10 @@ std::string escapeJsonString(const std::string &value) {
     escaped += c;
   }
   return escaped;
+}
+
+void sendTransfer(int socketFd, const std::string &host, uint16_t port) {
+  writePacket(socketFd, packet::configuration::transferClientbound, buildTransferPacket(host, port));
 }
 
 void handleStatus(int socketFd, const ServerOptions &options) {
@@ -286,15 +290,7 @@ void runPlayLoop(int socketFd, PlayerSession &session) {
 
 } // namespace
 
-void serveConnection(
-  int socketFd,
-  const ServerOptions &options,
-  const ResourcePackInfo &resourcePack,
-  const Viewport &viewport,
-  const TextureRegistry &textures,
-  const SoundRegistry &sounds,
-  const std::function<void(PlayerSession &)> &joinCallback
-) {
+void serveConnection(int socketFd, const ServerOptions &options, const std::function<HostResolution(const std::string &hostname)> &resolveHost) {
   RawPacket handshake = readPacket(socketFd);
   ByteReader handshakeReader(handshake.payload.data(), handshake.payload.size());
   handshakeReader.readVarInt(); // protocol version
@@ -308,7 +304,16 @@ void serveConnection(
   }
 
   handleLogin(socketFd);
-  handleConfiguration(socketFd, clientReportedAddress, resourcePack);
+
+  HostResolution resolution = resolveHost(clientReportedAddress);
+  const App &app = *resolution.app;
+
+  if (app.redirectTarget()) {
+    sendTransfer(socketFd, app.redirectTarget()->host, app.redirectTarget()->port);
+    return;
+  }
+
+  handleConfiguration(socketFd, clientReportedAddress, *resolution.resourcePack);
 
   RoomBounds room = computePlayerCellBounds();
   constexpr int32_t chunkRadius = 4;
@@ -317,8 +322,8 @@ void serveConnection(
   spawnCameraSeat(socketFd);
 
   int32_t nextEntityId = firstSpriteEntityId;
-  PlayerSession session(socketFd, viewport, textures, sounds, nextEntityId);
-  if (joinCallback) joinCallback(session);
+  PlayerSession session(socketFd, app.viewport(), app.textures(), app.sounds(), nextEntityId);
+  if (app.joinCallback()) app.joinCallback()(session);
 
   runPlayLoop(socketFd, session);
 }

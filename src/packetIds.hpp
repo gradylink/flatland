@@ -22,6 +22,7 @@ constexpr int32_t resourcePackServerbound = 6;
 constexpr int32_t selectKnownPacksServerbound = 7;
 
 constexpr int32_t finishConfigurationClientbound = 3;
+constexpr int32_t transferClientbound = 12;
 constexpr int32_t registryDataClientbound = 7;
 constexpr int32_t resourcePackPushClientbound = 9;
 constexpr int32_t updateTagsClientbound = 14;
@@ -45,6 +46,7 @@ constexpr int32_t entitySoundEffectClientbound = 118;
 constexpr int32_t soundEffectClientbound = 119;
 constexpr int32_t stopSoundClientbound = 121;
 constexpr int32_t systemChatClientbound = 124;
+constexpr int32_t transferClientbound = 132;
 constexpr int32_t setCameraClientbound = 95;
 constexpr int32_t setChunkCacheCenterClientbound = 96;
 constexpr int32_t setDefaultSpawnPositionClientbound = 99;

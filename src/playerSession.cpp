@@ -6,6 +6,7 @@
 #include "packetIds.hpp"
 #include "packetIo.hpp"
 #include "sound.hpp"
+#include "transfer.hpp"
 #include "uuid.hpp"
 
 namespace flatland {
@@ -97,6 +98,8 @@ void PlayerSession::sendChatMessage(const std::string &text, bool actionBar) {
   buffer.writeBool(actionBar);
   writePacket(socketFd, packet::play::systemChatClientbound, buffer);
 }
+
+void PlayerSession::transferTo(const std::string &host, uint16_t port) { writePacket(socketFd, packet::play::transferClientbound, buildTransferPacket(host, port)); }
 
 void PlayerSession::onTick(std::function<void(PlayerSession &, double)> callback) { tickCallback = std::move(callback); }
 void PlayerSession::onInput(std::function<void(PlayerSession &, const InputState &)> callback) { inputCallback = std::move(callback); }

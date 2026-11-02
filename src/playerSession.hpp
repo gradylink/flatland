@@ -37,6 +37,8 @@ public:
 
   void sendChatMessage(const std::string &text, bool actionBar = false);
 
+  void transferTo(const std::string &host, uint16_t port);
+
   void onTick(std::function<void(PlayerSession &, double)> callback);
 
   void onInput(std::function<void(PlayerSession &, const InputState &)> callback);

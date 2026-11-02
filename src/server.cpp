@@ -27,28 +27,39 @@ std::string toHexString(const std::array<uint8_t, 20> &digest) {
 
 } // namespace
 
-Server::Server(ServerOptions options) : options(std::move(options)) {}
+Server::Server(ServerOptions options) : options(std::move(options)), nextResourcePackPort(static_cast<uint16_t>(this->options.port + 1)) {}
 
 Server::~Server() { stop(); }
 
-void Server::setViewport(Viewport newViewport) { viewport = newViewport; }
+void Server::onResolveApp(std::function<void(const std::string &, App &)> newResolver) { resolver = std::move(newResolver); }
 
-TextureId Server::registerTexture(const std::string &name, std::vector<uint8_t> pngBytes) { return textures.registerTexture(name, std::move(pngBytes)); }
+HostResolution Server::resolveHost(const std::string &hostname) {
+  std::lock_guard<std::mutex> lock(resolveMutex);
 
-SoundId Server::registerSound(const std::string &name, std::vector<uint8_t> oggBytes) { return sounds.registerSound(name, std::move(oggBytes)); }
+  auto it = resolvedHosts.find(hostname);
+  if (it == resolvedHosts.end()) {
+    it = resolvedHosts.try_emplace(hostname).first;
+    ResolvedHost &resolved = it->second;
+    if (resolver) resolver(hostname, resolved.app);
 
-void Server::onPlayerJoin(std::function<void(PlayerSession &)> callback) { joinCallback = std::move(callback); }
+    if (!resolved.app.redirectTarget()) {
+      std::vector<uint8_t> resourcePackBytes = buildResourcePackZip(resolved.app.viewport(), resolved.app.textures(), resolved.app.sounds());
+      std::string resourcePackSha1 = toHexString(sha1(resourcePackBytes));
+      uint16_t resourcePackPort = nextResourcePackPort++;
+
+      resolved.resourcePackServer = std::make_unique<HttpServer>(resourcePackPort, "application/zip", std::string(resourcePackBytes.begin(), resourcePackBytes.end()));
+      HttpServer *resourcePackServerPtr = resolved.resourcePackServer.get();
+      std::thread([resourcePackServerPtr]() { resourcePackServerPtr->run(); }).detach();
+
+      resolved.resourcePack = ResourcePackInfo{resourcePackPort, resourcePackSha1};
+    }
+  }
+
+  const ResolvedHost &resolved = it->second;
+  return HostResolution{&resolved.app, resolved.app.redirectTarget() ? nullptr : &resolved.resourcePack};
+}
 
 void Server::run() {
-  std::vector<uint8_t> resourcePackBytes = buildResourcePackZip(viewport, textures, sounds);
-  std::string resourcePackSha1 = toHexString(sha1(resourcePackBytes));
-  uint16_t resourcePackPort = static_cast<uint16_t>(options.port + 1);
-
-  resourcePackServer = std::make_unique<HttpServer>(resourcePackPort, "application/zip", std::string(resourcePackBytes.begin(), resourcePackBytes.end()));
-  std::thread([this]() { resourcePackServer->run(); }).detach();
-
-  ResourcePackInfo resourcePackInfo{resourcePackPort, resourcePackSha1};
-
   listenFd = ::socket(AF_INET, SOCK_STREAM, 0);
   if (listenFd < 0) throw std::runtime_error("failed to create socket");
 
@@ -84,9 +95,9 @@ void Server::run() {
     ::setsockopt(clientFd, IPPROTO_TCP, TCP_NODELAY, &noDelay, sizeof(noDelay));
 
     ServerOptions connectionOptions = options;
-    std::thread([clientFd, connectionOptions, resourcePackInfo, this]() {
+    std::thread([clientFd, connectionOptions, this]() {
       try {
-        serveConnection(clientFd, connectionOptions, resourcePackInfo, viewport, textures, sounds, joinCallback);
+        serveConnection(clientFd, connectionOptions, [this](const std::string &hostname) { return resolveHost(hostname); });
       } catch (const std::exception &error) {
         std::fprintf(stderr, "flatland: connection on fd %d terminated by exception: %s\n", clientFd, error.what());
         std::fflush(stderr);
@@ -106,7 +117,11 @@ void Server::stop() {
     ::close(listenFd);
     listenFd = -1;
   }
-  if (resourcePackServer) resourcePackServer->stop();
+
+  std::lock_guard<std::mutex> lock(resolveMutex);
+  for (auto &[hostname, resolved] : resolvedHosts) {
+    if (resolved.resourcePackServer) resolved.resourcePackServer->stop();
+  }
 }
 
 } // namespace flatland
