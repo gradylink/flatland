@@ -8,6 +8,7 @@
 #include "sound.hpp"
 #include "transfer.hpp"
 #include "uuid.hpp"
+#include <cmath>
 
 namespace flatland {
 
@@ -41,39 +42,118 @@ void PlayerSession::ensureHotbarItem() {
 
 SpriteId PlayerSession::createSprite(TextureId texture, double x, double y) {
   int32_t entityId = nextEntityId++;
-  double worldX = viewportPixelToWorldX(viewport, x);
-  double worldY = viewportPixelToWorldY(viewport, y);
+  TextureSize size = textures.size(texture);
 
-  writePacket(socketFd, packet::play::addEntityClientbound, buildAddEntityPacket(entityId, randomUuid(), itemDisplayEntityTypeId, worldX, worldY, viewportPlaneZ));
+  writePacket(
+    socketFd,
+    packet::play::addEntityClientbound,
+    buildAddEntityPacket(entityId, randomUuid(), itemDisplayEntityTypeId, viewportPixelToWorldX(viewport, x), viewportPixelToWorldY(viewport, y), layerToWorldZ(0))
+  );
   writePacket(socketFd, packet::play::setEntityDataClientbound, buildItemDisplayItemPacket(entityId, buildSpriteItemStack(textures.itemModelId(texture))));
-  writePacket(socketFd, packet::play::setEntityDataClientbound, buildDisplayScalePacket(entityId, 1.0f, 1.0f, 0.0f));
   writePacket(socketFd, packet::play::setEntityDataClientbound, buildDisplayBrightnessOverridePacket(entityId, fullBrightBrightnessOverride));
-  writePacket(socketFd, packet::play::setEntityDataClientbound, buildDisplayDimensionsPacket(entityId, 1.0f, 1.0f));
 
   SpriteId sprite = nextSpriteId++;
-  spriteEntityIds[sprite] = entityId;
+  sprites[sprite] = Sprite{entityId, texture, true, std::nullopt};
+
+  SpriteTransform transform;
+  transform.x = x;
+  transform.y = y;
+  transform.width = size.width;
+  transform.height = size.height;
+  setSpriteTransform(sprite, transform);
   return sprite;
 }
 
 void PlayerSession::moveSprite(SpriteId sprite, double x, double y) {
-  auto it = spriteEntityIds.find(sprite);
-  if (it == spriteEntityIds.end()) return;
+  auto it = sprites.find(sprite);
+  if (it == sprites.end() || !it->second.transform) return;
 
-  double worldX = viewportPixelToWorldX(viewport, x);
-  double worldY = viewportPixelToWorldY(viewport, y);
-  writePacket(socketFd, packet::play::teleportEntityClientbound, buildTeleportEntityPacket(it->second, worldX, worldY, viewportPlaneZ, 0.0f, 0.0f, false));
+  SpriteTransform transform = *it->second.transform;
+  transform.x = x;
+  transform.y = y;
+  setSpriteTransform(sprite, transform);
+}
+
+void PlayerSession::setSpriteTransform(SpriteId sprite, const SpriteTransform &transform) {
+  auto it = sprites.find(sprite);
+  if (it == sprites.end()) return;
+  Sprite &state = it->second;
+  const std::optional<SpriteTransform> &sent = state.transform;
+
+  if (!sent || sent->x != transform.x || sent->y != transform.y || sent->layer != transform.layer) {
+    writePacket(
+      socketFd,
+      packet::play::teleportEntityClientbound,
+      buildTeleportEntityPacket(
+        state.entityId,
+        viewportPixelToWorldX(viewport, transform.x),
+        viewportPixelToWorldY(viewport, transform.y),
+        layerToWorldZ(transform.layer),
+        0.0f,
+        0.0f,
+        false
+      )
+    );
+  }
+
+  if (!sent || sent->width != transform.width || sent->height != transform.height || sent->rotation != transform.rotation) {
+    float scaleX = static_cast<float>(transform.width / pixelsPerBlock);
+    float scaleY = static_cast<float>(transform.height / pixelsPerBlock);
+    double halfAngle = transform.rotation * (3.14159265358979323846 / 180.0) / 2.0;
+    float cullSize = static_cast<float>(std::hypot(transform.width, transform.height) / pixelsPerBlock);
+    writePacket(
+      socketFd,
+      packet::play::setEntityDataClientbound,
+      buildDisplayTransformPacket(
+        state.entityId,
+        scaleX,
+        scaleY,
+        0.0f,
+        0.0f,
+        0.0f,
+        static_cast<float>(std::sin(halfAngle)),
+        static_cast<float>(std::cos(halfAngle)),
+        cullSize,
+        cullSize
+      )
+    );
+  }
+
+  state.transform = transform;
+}
+
+void PlayerSession::setSpriteTexture(SpriteId sprite, TextureId texture) {
+  auto it = sprites.find(sprite);
+  if (it == sprites.end() || it->second.texture == texture) return;
+
+  it->second.texture = texture;
+  if (it->second.visible)
+    writePacket(socketFd, packet::play::setEntityDataClientbound, buildItemDisplayItemPacket(it->second.entityId, buildSpriteItemStack(textures.itemModelId(texture))));
+}
+
+void PlayerSession::setSpriteVisible(SpriteId sprite, bool visible) {
+  auto it = sprites.find(sprite);
+  if (it == sprites.end() || it->second.visible == visible) return;
+
+  it->second.visible = visible;
+  writePacket(
+    socketFd,
+    packet::play::setEntityDataClientbound,
+    visible ? buildItemDisplayItemPacket(it->second.entityId, buildSpriteItemStack(textures.itemModelId(it->second.texture)))
+            : buildItemDisplayEmptyPacket(it->second.entityId)
+  );
 }
 
 void PlayerSession::removeSprite(SpriteId sprite) {
-  auto it = spriteEntityIds.find(sprite);
-  if (it == spriteEntityIds.end()) return;
+  auto it = sprites.find(sprite);
+  if (it == sprites.end()) return;
 
   ByteBuffer buffer;
   buffer.writeVarInt(1);
-  buffer.writeVarInt(it->second);
+  buffer.writeVarInt(it->second.entityId);
   writePacket(socketFd, packet::play::removeEntitiesClientbound, buffer);
 
-  spriteEntityIds.erase(it);
+  sprites.erase(it);
 }
 
 void PlayerSession::playSound(SoundId sound, float volume, float pitch) { playSound(sounds.soundEventName(sound), volume, pitch); }
@@ -111,6 +191,20 @@ void PlayerSession::onOpenInventory(std::function<void(PlayerSession &)> callbac
 void PlayerSession::onLeftClick(std::function<void(PlayerSession &)> callback) { leftClickCallback = std::move(callback); }
 void PlayerSession::onRightClick(std::function<void(PlayerSession &)> callback) { rightClickCallback = std::move(callback); }
 void PlayerSession::onChatMessage(std::function<void(PlayerSession &, const std::string &)> callback) { chatMessageCallback = std::move(callback); }
+
+void PlayerSession::post(std::function<void(PlayerSession &)> task) {
+  std::lock_guard<std::mutex> lock(postedTasksMutex);
+  postedTasks.push_back(std::move(task));
+}
+
+void PlayerSession::runPostedTasks() {
+  std::deque<std::function<void(PlayerSession &)>> tasks;
+  {
+    std::lock_guard<std::mutex> lock(postedTasksMutex);
+    tasks.swap(postedTasks);
+  }
+  for (auto &task : tasks) task(*this);
+}
 
 void PlayerSession::runTick(double elapsedSeconds) {
   if (tickCallback) tickCallback(*this, elapsedSeconds);

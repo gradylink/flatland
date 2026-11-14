@@ -249,6 +249,16 @@ void spawnCameraSeat(int socketFd) {
   writePacket(socketFd, packet::play::postEffectsClientbound, buildPostEffectsPacket({"flatland:flatland_letterbox"}));
 }
 
+struct SessionAttachment {
+  SessionAttachment(const App &app, PlayerSession &session) : app(app), session(session) { app.attachSession(session); }
+  ~SessionAttachment() { app.detachSession(session); }
+  SessionAttachment(const SessionAttachment &) = delete;
+  SessionAttachment &operator=(const SessionAttachment &) = delete;
+
+  const App &app;
+  PlayerSession &session;
+};
+
 void runPlayLoop(int socketFd, PlayerSession &session) {
   using clock = std::chrono::steady_clock;
   constexpr auto keepAliveInterval = std::chrono::seconds(10);
@@ -259,7 +269,14 @@ void runPlayLoop(int socketFd, PlayerSession &session) {
 
   while (true) {
     pollfd pollTarget{socketFd, POLLIN, 0};
-    int pollResult = ::poll(&pollTarget, 1, 50);
+    int pollResult = ::poll(&pollTarget, 1, 5);
+
+    try {
+      session.runPostedTasks();
+    } catch (const std::exception &error) {
+      std::fprintf(stderr, "flatland: posted session task failed: %s\n", error.what());
+      std::fflush(stderr);
+    }
 
     auto now = clock::now();
     if (now - lastKeepAlive >= keepAliveInterval) {
@@ -323,6 +340,7 @@ void serveConnection(int socketFd, const ServerOptions &options, const std::func
 
   int32_t nextEntityId = firstSpriteEntityId;
   PlayerSession session(socketFd, app.viewport(), app.textures(), app.sounds(), nextEntityId);
+  SessionAttachment attachment(app, session);
   if (app.joinCallback()) app.joinCallback()(session);
 
   runPlayLoop(socketFd, session);

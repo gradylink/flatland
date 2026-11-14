@@ -3,8 +3,10 @@
 #include "soundRegistry.hpp"
 #include "textureRegistry.hpp"
 #include "viewport.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -33,12 +35,28 @@ public:
   void redirectTo(std::string host, uint16_t port) { redirect = RedirectTarget{std::move(host), port}; }
   const std::optional<RedirectTarget> &redirectTarget() const { return redirect; }
 
+  void attachSession(PlayerSession &session) const {
+    std::lock_guard<std::mutex> lock(sessionsMutex);
+    sessions.push_back(&session);
+  }
+  void detachSession(PlayerSession &session) const {
+    std::lock_guard<std::mutex> lock(sessionsMutex);
+    sessions.erase(std::remove(sessions.begin(), sessions.end(), &session), sessions.end());
+  }
+
+  void broadcast(const std::function<void(PlayerSession &)> &task) const {
+    std::lock_guard<std::mutex> lock(sessionsMutex);
+    for (PlayerSession *session : sessions) session->post(task);
+  }
+
 private:
   Viewport viewportValue;
   TextureRegistry textureRegistry;
   SoundRegistry soundRegistry;
   std::function<void(PlayerSession &)> joinHandler;
   std::optional<RedirectTarget> redirect;
+  mutable std::mutex sessionsMutex;
+  mutable std::vector<PlayerSession *> sessions;
 };
 
 } // namespace flatland

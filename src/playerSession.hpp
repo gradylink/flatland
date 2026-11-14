@@ -3,7 +3,10 @@
 #include "textureRegistry.hpp"
 #include "viewport.hpp"
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace flatland {
@@ -20,12 +23,28 @@ struct InputState {
   bool sprint = false;
 };
 
+struct SpriteTransform {
+  double x = 0.0;
+  double y = 0.0;
+  double width = 0.0;
+  double height = 0.0;
+  double rotation = 0.0;
+  int32_t layer = 0;
+
+  bool operator==(const SpriteTransform &other) const {
+    return x == other.x && y == other.y && width == other.width && height == other.height && rotation == other.rotation && layer == other.layer;
+  }
+};
+
 class PlayerSession {
 public:
   PlayerSession(int socketFd, const Viewport &viewport, const TextureRegistry &textures, const SoundRegistry &sounds, int32_t &nextEntityId);
 
   SpriteId createSprite(TextureId texture, double x, double y);
   void moveSprite(SpriteId sprite, double x, double y);
+  void setSpriteTransform(SpriteId sprite, const SpriteTransform &transform);
+  void setSpriteTexture(SpriteId sprite, TextureId texture);
+  void setSpriteVisible(SpriteId sprite, bool visible);
   void removeSprite(SpriteId sprite);
 
   void playSound(SoundId sound, float volume = 1.0f, float pitch = 1.0f);
@@ -51,6 +70,9 @@ public:
   void onRightClick(std::function<void(PlayerSession &)> callback);
   void onChatMessage(std::function<void(PlayerSession &, const std::string &message)> callback);
 
+  void post(std::function<void(PlayerSession &)> task);
+  void runPostedTasks();
+
   void runTick(double elapsedSeconds);
   void handleServerboundPacket(int32_t packetId, const uint8_t *payload, size_t length);
 
@@ -62,7 +84,16 @@ private:
   const TextureRegistry &textures;
   const SoundRegistry &sounds;
   int32_t &nextEntityId;
-  std::unordered_map<SpriteId, int32_t> spriteEntityIds;
+  std::mutex postedTasksMutex;
+  std::deque<std::function<void(PlayerSession &)>> postedTasks;
+  struct Sprite {
+    int32_t entityId;
+    TextureId texture;
+    bool visible = true;
+    std::optional<SpriteTransform> transform;
+  };
+
+  std::unordered_map<SpriteId, Sprite> sprites;
   SpriteId nextSpriteId = 0;
   int32_t nextContainerStateId = 0;
   std::function<void(PlayerSession &, double)> tickCallback;

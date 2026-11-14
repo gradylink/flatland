@@ -59,6 +59,30 @@ ByteBuffer buildDisplayScalePacket(int32_t entityId, float scaleX, float scaleY,
   return buffer;
 }
 
+ByteBuffer buildDisplayTransformPacket(int32_t entityId, float scaleX, float scaleY, float scaleZ, float rotationX, float rotationY, float rotationZ, float rotationW, float cullWidth, float cullHeight) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(entityId);
+  buffer.writeByte(12);
+  buffer.writeVarInt(vector3EntityDataTypeId);
+  buffer.writeFloat(scaleX);
+  buffer.writeFloat(scaleY);
+  buffer.writeFloat(scaleZ);
+  buffer.writeByte(13);
+  buffer.writeVarInt(quaternionEntityDataTypeId);
+  buffer.writeFloat(rotationX);
+  buffer.writeFloat(rotationY);
+  buffer.writeFloat(rotationZ);
+  buffer.writeFloat(rotationW);
+  buffer.writeByte(20);
+  buffer.writeVarInt(floatEntityDataTypeId);
+  buffer.writeFloat(cullWidth);
+  buffer.writeByte(21);
+  buffer.writeVarInt(floatEntityDataTypeId);
+  buffer.writeFloat(cullHeight);
+  buffer.writeByte(0xFF);
+  return buffer;
+}
+
 ByteBuffer buildDisplayBrightnessOverridePacket(int32_t entityId, int32_t packedBrightness) {
   ByteBuffer buffer;
   buffer.writeVarInt(entityId);
@@ -78,6 +102,16 @@ ByteBuffer buildDisplayDimensionsPacket(int32_t entityId, float width, float hei
   buffer.writeByte(21);
   buffer.writeVarInt(floatEntityDataTypeId);
   buffer.writeFloat(height);
+  buffer.writeByte(0xFF);
+  return buffer;
+}
+
+ByteBuffer buildItemDisplayEmptyPacket(int32_t entityId) {
+  ByteBuffer buffer;
+  buffer.writeVarInt(entityId);
+  buffer.writeByte(23);
+  buffer.writeVarInt(itemStackEntityDataTypeId);
+  buffer.writeVarInt(0); // empty stack: nothing is drawn
   buffer.writeByte(0xFF);
   return buffer;
 }
